@@ -1,21 +1,16 @@
 {
   "name": "financetracker",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "concurrently \"npm run dev --workspace=server\" \"npm run dev --workspace=client\"",
+    "install:all": "npm install"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Kiveshan/FinanceTracker.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/Kiveshan/FinanceTracker/issues"
-  },
-  "homepage": "https://github.com/Kiveshan/FinanceTracker#readme"
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
 }
