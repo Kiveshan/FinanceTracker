@@ -20,3 +20,20 @@ export interface CreateAccountBody {
   type: AccountType
   opening_balance: number
 }
+
+
+export type CategoryType = 'income' | 'expense'
+
+export interface Category {
+  id: number
+  user_id: number
+  name: string
+  type: CategoryType
+  is_default: boolean
+  created_at: Date
+}
+
+export  interface CreateCategoryBody {
+     name : string
+     type : CategoryType
+}

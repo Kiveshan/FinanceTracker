@@ -6,6 +6,7 @@ dotenv.config()
 
 import './db'
 import accountsRouter from './routes/accounts.route'
+import categoryRouter from './routes/categories.route'
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -20,6 +21,7 @@ app.use(express.json())
 // The /api prefix is a convention that clearly separates backend API
 // routes from frontend routes. Every backend route will start with /api.
 app.use('/api/accounts', accountsRouter)
+app.use('/api/categories',categoryRouter)
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
