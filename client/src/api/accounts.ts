@@ -12,14 +12,15 @@ export const accountsApi = {
   getAll: async (): Promise<Account[]> => {
     const response = await fetch(`${BASE_URL}/accounts`)
 
-    // LEARNING NOTE: fetch() does NOT throw an error for 4xx/5xx responses.
-    // A 404 or 500 still resolves successfully — you have to check ok manually.
-    // This trips up almost everyone the first time they use fetch.
+
+  
     if (!response.ok) {
       throw new Error('Failed to fetch accounts')
     }
 
-    return response.json()
+        const data = await response.json()
+
+    return data.map((account : Account)=> parseAccount(account))
   },
 
   create: async (data: CreateAccountBody): Promise<Account> => {
@@ -33,7 +34,10 @@ export const accountsApi = {
       throw new Error('Failed to create account')
     }
 
-    return response.json()
+    const raw_data : Account = await response.json()
+  
+  
+    return parseAccount ({...raw_data, current_balance : raw_data.opening_balance}) 
   },
 
   delete: async (id: number): Promise<void> => {
@@ -45,4 +49,10 @@ export const accountsApi = {
       throw new Error('Failed to delete account')
     }
   }
+}
+
+
+
+function parseAccount(data:Account) {
+  return {...data ,opening_balance : data.opening_balance, current_balance : +data.current_balance } 
 }

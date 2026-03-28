@@ -3,6 +3,7 @@ import type { Account } from '../../types'
 import { accountsApi } from '../../api/accounts'
 import { AccountCard } from './AccountCard'
 import { AddAccountModal } from './AddAccountModal'
+import type { CreateAccountBody } from '../../types'
 
 export function AccountsPage() {
   const [accounts, setAccounts]     = useState<Account[]>([])
@@ -33,7 +34,7 @@ export function AccountsPage() {
     }
   }
 
-  const handleCreate = async (data: Parameters<typeof accountsApi.create>[0]) => {
+  const handleCreate = async (data: CreateAccountBody) => {
     const newAccount = await accountsApi.create(data)
     // LEARNING NOTE: Never mutate state directly.
     // setAccounts(accounts.push(newAccount)) — WRONG. push mutates the array.
