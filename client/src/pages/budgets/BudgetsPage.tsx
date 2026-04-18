@@ -3,10 +3,13 @@ import type { BudgetWithSpend } from '../../types'
 import { budgetsApi } from '../../api/budgets'
 import { SetBudgetModal } from './SetBudgetModal'
 import { Card } from '../../components/ui/Card'
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR', minimumFractionDigits: 2 }).format(amount)
-}
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { formatCurrency, formatMonth } from '../../utils/format'
+import { Spinner } from '../../components/ui/Spinner'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { PiggyBank } from 'lucide-react'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
+import { toast } from 'sonner'
 
 function statusIcon(pct: number | null): { icon: string; colour: string } {
   if (pct === null) return { icon: '—', colour: 'text-muted' }
@@ -16,6 +19,7 @@ function statusIcon(pct: number | null): { icon: string; colour: string } {
 }
 
 export function BudgetsPage() {
+  useDocumentTitle('Budgets')
   const currentMonth = new Date().toISOString().slice(0, 7)
 
   const [month, setMonth]           = useState<string>(currentMonth)
@@ -23,6 +27,7 @@ export function BudgetsPage() {
   const [isLoading, setIsLoading]   = useState(true)
   const [error, setError]           = useState<string | null>(null)
   const [editing, setEditing]       = useState<BudgetWithSpend | null>(null)
+  const [deleting, setDeleting]     = useState<BudgetWithSpend | null>(null)
 
   useEffect(() => { fetchBudgets() }, [month]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -39,14 +44,24 @@ export function BudgetsPage() {
   }
 
   const handleUpsert = async (categoryId: number, limit: number, targetMonth: string) => {
-    await budgetsApi.upsert({ category_id: categoryId, monthly_limit: limit, month: targetMonth })
-    await fetchBudgets()
+    try {
+      await budgetsApi.upsert({ category_id: categoryId, monthly_limit: limit, month: targetMonth })
+      await fetchBudgets()
+      toast.success('Budget saved')
+    } catch {
+      toast.error('Failed to save budget')
+    }
   }
 
   const handleDelete = async (id: number) => {
-    await budgetsApi.delete(id)
-    setBudgets(prev => prev.map(b => b.id === id ? { ...b, id: undefined as unknown as number, monthly_limit: null as unknown as number } : b))
-    await fetchBudgets()
+    try {
+      await budgetsApi.delete(id)
+      setBudgets(prev => prev.map(b => b.id === id ? { ...b, id: undefined as unknown as number, monthly_limit: null as unknown as number } : b))
+      await fetchBudgets()
+      toast.success('Budget removed')
+    } catch {
+      toast.error('Failed to remove budget')
+    }
   }
 
   // Generate month options: current month + 11 previous months
@@ -56,7 +71,7 @@ export function BudgetsPage() {
     return d.toISOString().slice(0, 7)
   })
 
-  if (isLoading) return <div className="flex items-center justify-center h-64"><p className="text-muted">Loading…</p></div>
+  if (isLoading) return <div className="flex items-center justify-center h-64"><Spinner size={32} /></div>
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -72,7 +87,7 @@ export function BudgetsPage() {
           className="bg-surface border border-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-primary"
         >
           {monthOptions.map(m => (
-            <option key={m} value={m}>{m}</option>
+            <option key={m} value={m}>{formatMonth(m)}</option>
           ))}
         </select>
       </div>
@@ -80,7 +95,11 @@ export function BudgetsPage() {
       {error && <p className="text-danger mb-4 text-sm">{error}</p>}
 
       {budgets.length === 0 ? (
-        <p className="text-muted text-center py-16">No expense categories yet. Add categories first.</p>
+        <EmptyState
+          icon={PiggyBank}
+          title="No expense categories yet"
+          description="Add categories first, then set monthly spending limits."
+        />
       ) : (
         <div className="flex flex-col gap-8">
 
@@ -114,7 +133,7 @@ export function BudgetsPage() {
                               Edit
                             </button>
                             <button
-                              onClick={() => handleDelete(budget.id)}
+                              onClick={() => setDeleting(budget)}
                               className="text-muted hover:text-danger text-xs transition-colors"
                             >
                               Remove
@@ -177,6 +196,16 @@ export function BudgetsPage() {
           month={month}
           onClose={() => setEditing(null)}
           onSubmit={handleUpsert}
+        />
+      )}
+
+      {deleting && (
+        <ConfirmDialog
+          title="Remove Budget"
+          message={`Remove the budget for "${deleting.category_name}"? The category and its transactions won't be affected.`}
+          confirmLabel="Remove"
+          onConfirm={() => { const id = deleting.id; setDeleting(null); handleDelete(id) }}
+          onCancel={() => setDeleting(null)}
         />
       )}
     </div>

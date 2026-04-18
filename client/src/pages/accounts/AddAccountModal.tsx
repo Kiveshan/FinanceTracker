@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { AccountType, CreateAccountBody } from '../../types'
+import { useModalClose } from '../../hooks/useModalClose'
 
 interface AddAccountModalProps {
   onClose: () => void
@@ -14,6 +15,7 @@ const ACCOUNT_TYPES: { value: AccountType; label: string }[] = [
 ]
 
 export function AddAccountModal({ onClose, onSubmit }: AddAccountModalProps) {
+  useModalClose(onClose)
   // LEARNING NOTE: One state value per form field.
   // When the user types, we call the setter which updates state,
   // which re-renders the component with the new value in the input.

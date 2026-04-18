@@ -1,16 +1,9 @@
 import { Card } from '../../components/ui/Card'
+import { formatCurrency, formatDateShort } from '../../utils/format'
 import type { Transaction } from '../../types'
 
 interface Props {
   expenses: (Transaction & { account_name: string; category_name: string | null })[]
-}
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR', minimumFractionDigits: 2 }).format(amount)
-}
-
-function formatDate(d: string) {
-  return new Date(d).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short' })
 }
 
 export function LargestExpensesList({ expenses }: Props) {
@@ -27,7 +20,7 @@ export function LargestExpensesList({ expenses }: Props) {
                 <span className="text-muted text-xs w-4 shrink-0">#{idx + 1}</span>
                 <div className="min-w-0">
                   <p className="text-white text-sm truncate">{tx.description}</p>
-                  <p className="text-muted text-xs">{formatDate(tx.date)} · {tx.category_name ?? '—'}</p>
+                  <p className="text-muted text-xs">{formatDateShort(tx.date)} · {tx.category_name ?? '—'}</p>
                 </div>
               </div>
               <p className="text-danger text-sm font-medium shrink-0">-{formatCurrency(tx.amount)}</p>

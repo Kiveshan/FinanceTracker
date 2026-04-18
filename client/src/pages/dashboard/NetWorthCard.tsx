@@ -1,12 +1,9 @@
 import { Card } from '../../components/ui/Card'
+import { formatCurrency } from '../../utils/format'
 
 interface Props {
   netWorth: number
   change: number
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR', minimumFractionDigits: 2 }).format(amount)
 }
 
 export function NetWorthCard({ netWorth, change }: Props) {

@@ -1,12 +1,9 @@
 import { Card } from '../../components/ui/Card'
+import { formatCurrency } from '../../utils/format'
 import type { BudgetStatusItem } from '../../api/dashboard'
 
 interface Props {
   items: BudgetStatusItem[]
-}
-
-function formatCurrency(n: number) {
-  return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR', minimumFractionDigits: 0 }).format(n)
 }
 
 function statusIcon(pct: number | null) {
@@ -38,7 +35,7 @@ export function BudgetStatusWidget({ items }: Props) {
                     {item.category_name}
                   </span>
                   <span className="text-muted text-xs">
-                    {formatCurrency(item.spent)} / {formatCurrency(item.monthly_limit!)}
+                    {formatCurrency(item.spent, true)} / {formatCurrency(item.monthly_limit!, true)}
                   </span>
                 </div>
                 <div className="w-full bg-border rounded-full h-1.5">

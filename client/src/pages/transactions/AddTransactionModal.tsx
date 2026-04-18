@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { Account, Category, CreateTransactionBody, TransactionType } from '../../types'
+import { useModalClose } from '../../hooks/useModalClose'
 
 interface Props {
   accounts: Account[]
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function AddTransactionModal({ accounts, categories, onClose, onSubmit }: Props) {
+  useModalClose(onClose)
   const today = new Date().toISOString().split('T')[0]
 
   const [type, setType]               = useState<TransactionType>('expense')
@@ -70,8 +72,8 @@ export function AddTransactionModal({ accounts, categories, onClose, onSubmit }:
   const TYPE_TABS: TransactionType[] = ['expense', 'income', 'transfer']
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-surface border border-border rounded-xl w-full max-w-md">
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-surface border border-border rounded-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between p-6 border-b border-border">
           <h2 className="text-white font-semibold text-lg">Add Transaction</h2>
           <button onClick={onClose} className="text-muted hover:text-white transition-colors text-xl leading-none">&times;</button>

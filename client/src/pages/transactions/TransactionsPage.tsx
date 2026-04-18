@@ -6,13 +6,24 @@ import { categoriesApi } from '../../api/categories'
 import { TransactionRow } from './TransactionRow'
 import { AddTransactionModal } from './AddTransactionModal'
 import { EditTransactionModal } from './EditTransactionModal'
+import { useDebounce } from '../../hooks/useDebounce'
+import { ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Receipt } from 'lucide-react'
+import { Spinner } from '../../components/ui/Spinner'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
+import { toast } from 'sonner'
+
+type SortCol = 'date' | 'amount' | 'description' | 'category' | 'account'
+type SortDir = 'asc' | 'desc'
 
 export function TransactionsPage() {
+  useDocumentTitle('Transactions')
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [accounts, setAccounts]         = useState<Account[]>([])
   const [categories, setCategories]     = useState<Category[]>([])
   const [isLoading, setIsLoading]       = useState(true)
   const [error, setError]               = useState<string | null>(null)
+  const [total, setTotal]               = useState(0)
 
   const [showAddModal, setShowAddModal]     = useState(false)
   const [editingTx, setEditingTx]           = useState<Transaction | null>(null)
@@ -25,6 +36,16 @@ export function TransactionsPage() {
   const [filterDateTo, setFilterDateTo]       = useState<string>('')
   const [filterSearch, setFilterSearch]       = useState<string>('')
 
+  // Pagination
+  const [page, setPage]     = useState(1)
+  const PAGE_SIZE = 50
+
+  // Sorting
+  const [sortBy, setSortBy]   = useState<SortCol>('date')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
+
+  const debouncedSearch = useDebounce(filterSearch, 300)
+
   useEffect(() => {
     Promise.all([accountsApi.getAll(), categoriesApi.getAll()])
       .then(([accs, cats]) => {
@@ -34,23 +55,34 @@ export function TransactionsPage() {
       .catch(() => setError('Failed to load accounts/categories'))
   }, [])
 
+  // Reset to page 1 when filters or sort change
+  useEffect(() => {
+    setPage(1)
+  }, [filterType, filterAccount, filterCategory, filterDateFrom, filterDateTo, debouncedSearch, sortBy, sortDir])
+
   useEffect(() => {
     fetchTransactions()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterType, filterAccount, filterCategory, filterDateFrom, filterDateTo, filterSearch])
+  }, [filterType, filterAccount, filterCategory, filterDateFrom, filterDateTo, debouncedSearch, page, sortBy, sortDir])
 
   const fetchTransactions = async () => {
     try {
       setIsLoading(true)
-      const filters: TransactionFilters = {}
-      if (filterType)     filters.type        = filterType
-      if (filterAccount)  filters.account_id  = Number(filterAccount)
-      if (filterCategory) filters.category_id = Number(filterCategory)
-      if (filterDateFrom) filters.date_from   = filterDateFrom
-      if (filterDateTo)   filters.date_to     = filterDateTo
-      if (filterSearch)   filters.search      = filterSearch
-      const data = await transactionsApi.getAll(filters)
-      setTransactions(data)
+      const filters: TransactionFilters = {
+        page,
+        limit: PAGE_SIZE,
+        sort_by: sortBy,
+        sort_dir: sortDir,
+      }
+      if (filterType)       filters.type        = filterType
+      if (filterAccount)    filters.account_id  = Number(filterAccount)
+      if (filterCategory)   filters.category_id = Number(filterCategory)
+      if (filterDateFrom)   filters.date_from   = filterDateFrom
+      if (filterDateTo)     filters.date_to     = filterDateTo
+      if (debouncedSearch)  filters.search      = debouncedSearch
+      const result = await transactionsApi.getAll(filters)
+      setTransactions(result.data)
+      setTotal(result.total)
     } catch {
       setError('Failed to load transactions')
     } finally {
@@ -59,26 +91,54 @@ export function TransactionsPage() {
   }
 
   const handleCreate = async (data: CreateTransactionBody) => {
-    const result = await transactionsApi.create(data)
-    if ('debit' in result) {
-      setTransactions(prev => [result.debit, result.credit, ...prev])
-    } else {
-      setTransactions(prev => [result, ...prev])
+    try {
+      await transactionsApi.create(data)
+      await fetchTransactions()
+      toast.success('Transaction created')
+    } catch {
+      toast.error('Failed to create transaction')
     }
   }
 
   const handleUpdate = async (id: number, data: UpdateTransactionBody) => {
-    const updated = await transactionsApi.update(id, data)
-    setTransactions(prev => prev.map(t => t.id === id ? updated : t))
+    try {
+      await transactionsApi.update(id, data)
+      await fetchTransactions()
+      toast.success('Transaction updated')
+    } catch {
+      toast.error('Failed to update transaction')
+    }
   }
 
   const handleDelete = async (id: number) => {
-    await transactionsApi.delete(id)
-    // Remove the deleted tx and its transfer pair if visible
-    const tx = transactions.find(t => t.id === id)
-    const pairId = tx?.transfer_pair_id
-    setTransactions(prev => prev.filter(t => t.id !== id && t.id !== pairId))
+    try {
+      await transactionsApi.delete(id)
+      await fetchTransactions()
+      toast.success('Transaction deleted')
+    } catch {
+      toast.error('Failed to delete transaction')
+    }
   }
+
+  const toggleSort = (col: SortCol) => {
+    if (sortBy === col) {
+      setSortDir(prev => prev === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortBy(col)
+      setSortDir(col === 'amount' ? 'desc' : 'asc')
+    }
+  }
+
+  const SortIcon = ({ col }: { col: SortCol }) => {
+    if (sortBy !== col) return <ArrowUpDown size={14} className="text-muted" />
+    return sortDir === 'asc'
+      ? <ArrowUp size={14} className="text-primary" />
+      : <ArrowDown size={14} className="text-primary" />
+  }
+
+  const totalPages = Math.ceil(total / PAGE_SIZE)
+  const rangeStart = (page - 1) * PAGE_SIZE + 1
+  const rangeEnd   = Math.min(page * PAGE_SIZE, total)
 
   const TYPE_TABS = [
     { value: '', label: 'All' },
@@ -93,7 +153,7 @@ export function TransactionsPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-white text-2xl font-bold">Transactions</h1>
-          <p className="text-muted text-sm mt-1">{transactions.length} transactions</p>
+          <p className="text-muted text-sm mt-1">{total} transactions</p>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
@@ -174,22 +234,37 @@ export function TransactionsPage() {
       {/* Table */}
       {error && <p className="text-danger mb-4">{error}</p>}
       {isLoading ? (
-        <p className="text-muted text-center py-16">Loading…</p>
+        <div className="flex justify-center py-16"><Spinner size={32} /></div>
       ) : transactions.length === 0 ? (
-        <div className="text-center py-16">
-          <p className="text-muted text-lg">No transactions found</p>
-          <p className="text-muted text-sm mt-2">Add your first transaction to get started</p>
-        </div>
+        <EmptyState
+          icon={Receipt}
+          title="No transactions found"
+          description="Add your first transaction to start tracking your finances."
+          action={{ label: '+ Add Transaction', onClick: () => setShowAddModal(true) }}
+        />
       ) : (
         <div className="bg-surface border border-border rounded-xl overflow-hidden">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                <th className="py-3 px-4 text-left text-muted text-xs font-medium uppercase tracking-wider">Date</th>
-                <th className="py-3 px-4 text-left text-muted text-xs font-medium uppercase tracking-wider">Description</th>
-                <th className="py-3 px-4 text-left text-muted text-xs font-medium uppercase tracking-wider">Category</th>
-                <th className="py-3 px-4 text-left text-muted text-xs font-medium uppercase tracking-wider">Account</th>
-                <th className="py-3 px-4 text-right text-muted text-xs font-medium uppercase tracking-wider">Amount</th>
+                {[
+                  { col: 'date' as SortCol,        label: 'Date',        align: 'text-left' },
+                  { col: 'description' as SortCol,  label: 'Description', align: 'text-left' },
+                  { col: 'category' as SortCol,     label: 'Category',    align: 'text-left' },
+                  { col: 'account' as SortCol,      label: 'Account',     align: 'text-left' },
+                  { col: 'amount' as SortCol,       label: 'Amount',      align: 'text-right' },
+                ].map(({ col, label, align }) => (
+                  <th
+                    key={col}
+                    onClick={() => toggleSort(col)}
+                    className={`py-3 px-4 ${align} text-muted text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-white transition-colors select-none`}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      {label}
+                      <SortIcon col={col} />
+                    </span>
+                  </th>
+                ))}
                 <th className="py-3 px-4"></th>
               </tr>
             </thead>
@@ -207,6 +282,30 @@ export function TransactionsPage() {
         </div>
       )}
 
+      {/* Pagination */}
+      {!isLoading && totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <p className="text-muted text-sm">Showing {rangeStart}–{rangeEnd} of {total}</p>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="p-2 rounded-lg text-muted hover:text-white hover:bg-border transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <span className="text-white text-sm px-3">Page {page} of {totalPages}</span>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="p-2 rounded-lg text-muted hover:text-white hover:bg-border transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {showAddModal && (
         <AddTransactionModal
           accounts={accounts}
@@ -219,6 +318,7 @@ export function TransactionsPage() {
       {editingTx && (
         <EditTransactionModal
           transaction={editingTx}
+          accounts={accounts}
           categories={categories}
           onClose={() => setEditingTx(null)}
           onSubmit={handleUpdate}

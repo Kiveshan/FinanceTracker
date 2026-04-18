@@ -5,8 +5,13 @@ import { AccountCard } from './AccountCard'
 import { AddAccountModal } from './AddAccountModal'
 import { EditAccountModal } from './EditAccountModal'
 import type { CreateAccountBody } from '../../types'
+import { formatCurrency } from '../../utils/format'
+import { Spinner } from '../../components/ui/Spinner'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
+import { toast } from 'sonner'
 
 export function AccountsPage() {
+  useDocumentTitle('Accounts')
   const [accounts, setAccounts]     = useState<Account[]>([])
   const [isLoading, setIsLoading]   = useState(true)
   const [error, setError]           = useState<string | null>(null)
@@ -37,27 +42,33 @@ export function AccountsPage() {
   }
 
   const handleCreate = async (data: CreateAccountBody) => {
-    const newAccount = await accountsApi.create(data)
-    // LEARNING NOTE: Never mutate state directly.
-    // setAccounts(accounts.push(newAccount)) — WRONG. push mutates the array.
-    // Instead create a new array with the spread operator:
-    setAccounts(prev => [...prev, newAccount])
-    // [...prev, newAccount] means: all existing accounts, plus the new one.
-    // React sees a new array reference and knows to re-render.
+    try {
+      const newAccount = await accountsApi.create(data)
+      setAccounts(prev => [...prev, newAccount])
+      toast.success('Account created')
+    } catch {
+      toast.error('Failed to create account')
+    }
   }
 
   const handleUpdate = async (id: number, data: { name?: string; opening_balance?: number }) => {
-    const updated = await accountsApi.update(id, data)
-    setAccounts(prev => prev.map(a => a.id === id ? updated : a))
+    try {
+      const updated = await accountsApi.update(id, data)
+      setAccounts(prev => prev.map(a => a.id === id ? updated : a))
+      toast.success('Account updated')
+    } catch {
+      toast.error('Failed to update account')
+    }
   }
 
   const handleDelete = async (id: number) => {
-    await accountsApi.delete(id)
-    // Remove the deleted account from state
-    setAccounts(prev => prev.filter(a => a.id !== id))
-    // LEARNING NOTE: filter returns a new array containing only items
-    // where the condition is true. a.id !== id keeps everything except
-    // the deleted account. Again — new array, not mutation.
+    try {
+      await accountsApi.delete(id)
+      setAccounts(prev => prev.filter(a => a.id !== id))
+      toast.success('Account deleted')
+    } catch {
+      toast.error('Failed to delete account')
+    }
   }
 
   // Group accounts by type for display
@@ -80,7 +91,7 @@ export function AccountsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-muted">Loading accounts...</p>
+        <Spinner size={32} />
       </div>
     )
   }
@@ -102,10 +113,7 @@ export function AccountsPage() {
           <p className="text-muted text-sm mt-1">
             Net worth:{' '}
             <span className={netWorth >= 0 ? 'text-success' : 'text-danger'}>
-              {new Intl.NumberFormat('en-ZA', {
-                style: 'currency',
-                currency: 'ZAR'
-              }).format(netWorth)}
+              {formatCurrency(netWorth)}
             </span>
           </p>
         </div>

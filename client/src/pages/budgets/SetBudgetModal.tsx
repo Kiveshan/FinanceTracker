@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { BudgetWithSpend } from '../../types'
+import { useModalClose } from '../../hooks/useModalClose'
 
 interface Props {
   budget: BudgetWithSpend
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function SetBudgetModal({ budget, month, onClose, onSubmit }: Props) {
+  useModalClose(onClose)
   const [limit, setLimit]         = useState<string>(budget.monthly_limit?.toString() ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError]         = useState<string | null>(null)
@@ -29,8 +31,8 @@ export function SetBudgetModal({ budget, month, onClose, onSubmit }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-surface border border-border rounded-xl w-full max-w-sm">
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-surface border border-border rounded-xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between p-6 border-b border-border">
           <h2 className="text-white font-semibold">Set Budget — {budget.category_name}</h2>
           <button onClick={onClose} className="text-muted hover:text-white transition-colors text-xl leading-none">&times;</button>

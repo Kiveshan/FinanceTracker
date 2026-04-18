@@ -9,8 +9,12 @@ import { BudgetStatusWidget } from './BudgetStatusWidget'
 import { RecentTransactionsList } from './RecentTransactionsList'
 import { LargestExpensesList } from './LargestExpensesList'
 import { AccountBalancesCard } from './AccountBalancesCard'
+import { formatMonth } from '../../utils/format'
+import { PageSkeleton } from '../../components/ui/Skeleton'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 
 export function DashboardPage() {
+  useDocumentTitle('Dashboard')
   const currentMonth = new Date().toISOString().slice(0, 7)
   const [month, setMonth]         = useState<string>(currentMonth)
   const [data, setData]           = useState<DashboardData | null>(null)
@@ -47,7 +51,7 @@ export function DashboardPage() {
           className="bg-surface border border-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-primary"
         >
           {monthOptions.map(m => (
-            <option key={m} value={m}>{m}</option>
+            <option key={m} value={m}>{formatMonth(m)}</option>
           ))}
         </select>
       </div>
@@ -55,9 +59,7 @@ export function DashboardPage() {
       {error && <p className="text-danger mb-6">{error}</p>}
 
       {isLoading || !data ? (
-        <div className="flex items-center justify-center h-64">
-          <p className="text-muted">Loading dashboard…</p>
-        </div>
+        <PageSkeleton />
       ) : (
         <div className="flex flex-col gap-6">
           {/* Row 1: Key metrics */}

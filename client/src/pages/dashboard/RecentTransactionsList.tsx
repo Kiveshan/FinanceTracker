@@ -1,16 +1,9 @@
 import { Card } from '../../components/ui/Card'
+import { formatCurrency, formatDateShort } from '../../utils/format'
 import type { Transaction } from '../../types'
 
 interface Props {
   transactions: (Transaction & { account_name: string; category_name: string | null })[]
-}
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR', minimumFractionDigits: 2 }).format(amount)
-}
-
-function formatDate(d: string) {
-  return new Date(d).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short' })
 }
 
 export function RecentTransactionsList({ transactions }: Props) {
@@ -32,7 +25,7 @@ export function RecentTransactionsList({ transactions }: Props) {
               <div key={tx.id} className="py-2.5 flex items-center justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-white text-sm truncate">{tx.description}</p>
-                  <p className="text-muted text-xs">{formatDate(tx.date)} · {tx.account_name}</p>
+                  <p className="text-muted text-xs">{formatDateShort(tx.date)} · {tx.account_name}</p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className={`text-sm font-medium ${amountColour}`}>

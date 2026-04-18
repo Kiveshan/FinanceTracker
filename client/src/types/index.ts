@@ -79,6 +79,9 @@ export interface CreateTransactionBody {
 }
 
 export interface UpdateTransactionBody {
+  type?: TransactionType
+  account_id?: number
+  to_account_id?: number | null
   amount?: number
   date?: string
   description?: string

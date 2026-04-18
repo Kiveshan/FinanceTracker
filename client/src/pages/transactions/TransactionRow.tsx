@@ -1,4 +1,7 @@
+import { useState } from 'react'
 import type { Transaction } from '../../types'
+import { formatCurrency, formatDate } from '../../utils/format'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 
 interface Props {
   transaction: Transaction
@@ -12,23 +15,8 @@ const TYPE_STYLES: Record<string, string> = {
   transfer: 'text-blue-400',
 }
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-ZA', {
-    style: 'currency',
-    currency: 'ZAR',
-    minimumFractionDigits: 2,
-  }).format(amount)
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-ZA', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
-}
-
 export function TransactionRow({ transaction: tx, onEdit, onDelete }: Props) {
+  const [showConfirm, setShowConfirm] = useState(false)
   const isExpense  = tx.type === 'expense'
   const isTransfer = tx.type === 'transfer'
   const isDebit    = isTransfer && tx.transfer_direction === 'debit'
@@ -64,12 +52,22 @@ export function TransactionRow({ transaction: tx, onEdit, onDelete }: Props) {
             Edit
           </button>
           <button
-            onClick={() => onDelete(tx.id)}
+            onClick={() => setShowConfirm(true)}
             className="text-muted hover:text-danger text-xs transition-colors"
           >
             Delete
           </button>
         </div>
+
+        {showConfirm && (
+          <ConfirmDialog
+            title="Delete Transaction"
+            message={`Delete "${tx.description}" (${formatCurrency(tx.amount)})? This cannot be undone.`}
+            confirmLabel="Delete"
+            onConfirm={() => { setShowConfirm(false); onDelete(tx.id) }}
+            onCancel={() => setShowConfirm(false)}
+          />
+        )}
       </td>
     </tr>
   )

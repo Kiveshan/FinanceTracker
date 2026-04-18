@@ -121,6 +121,16 @@ export function LoginPage({ onLogin, onRegister }: Props) {
                 ? (mode === 'login' ? 'Signing in…' : 'Creating account…')
                 : (mode === 'login' ? 'Sign in' : 'Create account')}
             </button>
+
+            {mode === 'login' && (
+              <button
+                type="button"
+                className="text-muted hover:text-white text-xs transition-colors self-center"
+                onClick={() => alert('Password reset is not yet implemented.')}
+              >
+                Forgot password?
+              </button>
+            )}
           </form>
         </div>
       </div>

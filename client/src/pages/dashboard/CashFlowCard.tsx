@@ -1,13 +1,10 @@
 import { Card } from '../../components/ui/Card'
+import { formatCurrency } from '../../utils/format'
 
 interface Props {
   totalIncome: number
   totalExpenses: number
   net: number
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR', minimumFractionDigits: 2 }).format(amount)
 }
 
 export function CashFlowCard({ totalIncome, totalExpenses, net }: Props) {

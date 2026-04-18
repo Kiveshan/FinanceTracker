@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS imports (
   user_id           INTEGER     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   filename          TEXT        NOT NULL,
   status            TEXT        NOT NULL DEFAULT 'pending'
-                      CHECK (status IN ('pending', 'processing', 'complete', 'failed')),
+                      CHECK (status IN ('pending', 'processing', 'complete', 'failed', 'rolled_back')),
   transaction_count INTEGER     NOT NULL DEFAULT 0,
   duplicate_count   INTEGER     NOT NULL DEFAULT 0,
   error_message     TEXT,
@@ -75,6 +75,11 @@ ALTER TABLE transactions
   ADD CONSTRAINT fk_transactions_import
   FOREIGN KEY (import_id) REFERENCES imports(id) ON DELETE SET NULL;
 
+-- Migration: add rolled_back to imports status (run once on existing DBs)
+ALTER TABLE imports DROP CONSTRAINT IF EXISTS imports_status_check;
+ALTER TABLE imports ADD CONSTRAINT imports_status_check
+  CHECK (status IN ('pending', 'processing', 'complete', 'failed', 'rolled_back'));
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_transactions_user_id     ON transactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_account_id  ON transactions(account_id);
@@ -82,6 +87,9 @@ CREATE INDEX IF NOT EXISTS idx_transactions_category_id ON transactions(category
 CREATE INDEX IF NOT EXISTS idx_transactions_date        ON transactions(date);
 CREATE INDEX IF NOT EXISTS idx_transactions_import_id   ON transactions(import_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_active      ON transactions(user_id, date)
+  WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_unique_tx
+  ON transactions(user_id, account_id, date, amount, description)
   WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_budgets_user_month ON budgets(user_id, month);
 CREATE INDEX IF NOT EXISTS idx_accounts_user_id   ON accounts(user_id);

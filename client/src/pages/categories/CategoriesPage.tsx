@@ -2,8 +2,13 @@ import { useState, useEffect } from 'react'
 import type { Category, CategoryType } from '../../types'
 import { categoriesApi } from '../../api/categories'
 import { Card } from '../../components/ui/Card'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { Spinner } from '../../components/ui/Spinner'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
+import { toast } from 'sonner'
 
 export function CategoriesPage() {
+  useDocumentTitle('Categories')
   const [categories, setCategories]   = useState<Category[]>([])
   const [isLoading, setIsLoading]     = useState(true)
   const [error, setError]             = useState<string | null>(null)
@@ -12,6 +17,7 @@ export function CategoriesPage() {
   const [adding, setAdding]           = useState<CategoryType | null>(null)
   const [editingId, setEditingId]     = useState<number | null>(null)
   const [editName, setEditName]       = useState<string>('')
+  const [deletingCat, setDeletingCat] = useState<Category | null>(null)
 
   useEffect(() => {
     categoriesApi.getAll()
@@ -28,8 +34,9 @@ export function CategoriesPage() {
       setCategories(prev => [...prev, created])
       setNewName(prev => ({ ...prev, [type]: '' }))
       setAdding(null)
+      toast.success('Category created')
     } catch {
-      setError('Failed to create category')
+      toast.error('Failed to create category')
     }
   }
 
@@ -40,8 +47,9 @@ export function CategoriesPage() {
       await categoriesApi.update(id, { name })
       setCategories(prev => prev.map(c => c.id === id ? { ...c, name } : c))
       setEditingId(null)
+      toast.success('Category renamed')
     } catch {
-      setError('Failed to update category')
+      toast.error('Failed to update category')
     }
   }
 
@@ -49,15 +57,16 @@ export function CategoriesPage() {
     try {
       await categoriesApi.delete(id)
       setCategories(prev => prev.filter(c => c.id !== id))
+      toast.success('Category deleted')
     } catch {
-      setError('Failed to delete category — it may be in use by transactions')
+      toast.error('Failed to delete category — it may be in use by transactions')
     }
   }
 
   const income  = categories.filter(c => c.type === 'income')
   const expense = categories.filter(c => c.type === 'expense')
 
-  if (isLoading) return <div className="flex items-center justify-center h-64"><p className="text-muted">Loading…</p></div>
+  if (isLoading) return <div className="flex items-center justify-center h-64"><Spinner size={32} /></div>
 
   const Section = ({ type, list }: { type: CategoryType; list: Category[] }) => (
     <Card className="flex flex-col gap-3">
@@ -96,7 +105,7 @@ export function CategoriesPage() {
                   Rename
                 </button>
                 <button
-                  onClick={() => handleDelete(cat.id)}
+                  onClick={() => setDeletingCat(cat)}
                   className="text-muted hover:text-danger text-xs transition-colors"
                 >
                   Delete
@@ -141,6 +150,16 @@ export function CategoriesPage() {
         <Section type="income"  list={income}  />
         <Section type="expense" list={expense} />
       </div>
+
+      {deletingCat && (
+        <ConfirmDialog
+          title="Delete Category"
+          message={`Delete "${deletingCat.name}"? This will fail if any transactions use this category.`}
+          confirmLabel="Delete"
+          onConfirm={() => { const id = deletingCat.id; setDeletingCat(null); handleDelete(id) }}
+          onCancel={() => setDeletingCat(null)}
+        />
+      )}
     </div>
   )
 }
