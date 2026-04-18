@@ -3,13 +3,15 @@ import type { Account } from '../../types'
 import { accountsApi } from '../../api/accounts'
 import { AccountCard } from './AccountCard'
 import { AddAccountModal } from './AddAccountModal'
+import { EditAccountModal } from './EditAccountModal'
 import type { CreateAccountBody } from '../../types'
 
 export function AccountsPage() {
   const [accounts, setAccounts]     = useState<Account[]>([])
   const [isLoading, setIsLoading]   = useState(true)
   const [error, setError]           = useState<string | null>(null)
-  const [showModal, setShowModal]   = useState(false)
+  const [showModal, setShowModal]     = useState(false)
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null)
 
   // LEARNING NOTE: useEffect with an empty dependency array []
   // runs exactly once — when the component first mounts (appears on screen).
@@ -42,6 +44,11 @@ export function AccountsPage() {
     setAccounts(prev => [...prev, newAccount])
     // [...prev, newAccount] means: all existing accounts, plus the new one.
     // React sees a new array reference and knows to re-render.
+  }
+
+  const handleUpdate = async (id: number, data: { name?: string; opening_balance?: number }) => {
+    const updated = await accountsApi.update(id, data)
+    setAccounts(prev => prev.map(a => a.id === id ? updated : a))
   }
 
   const handleDelete = async (id: number) => {
@@ -123,6 +130,7 @@ export function AccountsPage() {
                 key={account.id}
                 account={account}
                 onDelete={handleDelete}
+                onEdit={setEditingAccount}
               />
             ))}
           </div>
@@ -142,6 +150,14 @@ export function AccountsPage() {
         <AddAccountModal
           onClose={() => setShowModal(false)}
           onSubmit={handleCreate}
+        />
+      )}
+
+      {editingAccount && (
+        <EditAccountModal
+          account={editingAccount}
+          onClose={() => setEditingAccount(null)}
+          onSubmit={handleUpdate}
         />
       )}
     </div>

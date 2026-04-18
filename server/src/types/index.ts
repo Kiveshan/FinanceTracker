@@ -103,3 +103,32 @@ export interface UpdateAccountBody {
 }
 
 export type CreateTransactionInput = Omit<Transaction,'id' | 'created_at' | 'updated_at' | 'deleted_at'>
+
+export interface CreateTransactionBody {
+  account_id: number
+  to_account_id?: number
+  category_id?: number | null
+  type: TransactionType
+  amount: number
+  date: string
+  description: string
+  notes?: string | null
+}
+
+export interface UpdateTransactionBody {
+  amount?: number
+  date?: string
+  description?: string
+  category_id?: number | null
+  notes?: string | null
+}
+
+export interface CreateBudgetBody {
+  category_id: number
+  monthly_limit: number
+  month: string
+}
+
+export interface UpdateBudgetBody {
+  monthly_limit: number
+}

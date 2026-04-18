@@ -1,5 +1,12 @@
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
 import { AccountsPage } from './pages/accounts/AccountsPage'
+import { TransactionsPage } from './pages/transactions/TransactionsPage'
+import { CategoriesPage } from './pages/categories/CategoriesPage'
+import { BudgetsPage } from './pages/budgets/BudgetsPage'
+import { DashboardPage } from './pages/dashboard/DashboardPage'
+import { ImportPage } from './pages/imports/ImportPage'
+import { LoginPage } from './pages/auth/LoginPage'
+import { useAuth } from './hooks/useAuth'
 
 // LEARNING NOTE: BrowserRouter provides routing context to the whole app.
 // Routes contains all your route definitions.
@@ -8,6 +15,12 @@ import { AccountsPage } from './pages/accounts/AccountsPage'
 // route is active and can apply active styles automatically.
 
 function App() {
+  const { isAuthenticated, email, login, register, logout } = useAuth()
+
+  if (!isAuthenticated) {
+    return <LoginPage onLogin={login} onRegister={register} />
+  }
+
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-background flex">
@@ -25,6 +38,8 @@ function App() {
               { to: '/accounts',    label: 'Accounts'     },
               { to: '/transactions',label: 'Transactions' },
               { to: '/budgets',     label: 'Budgets'      },
+              { to: '/categories',  label: 'Categories'   },
+              { to: '/import',      label: 'Import'        },
             ].map(({ to, label }) => (
               <NavLink
                 key={to}
@@ -42,15 +57,27 @@ function App() {
               </NavLink>
             ))}
           </nav>
+
+          <div className="mt-auto">
+            {email && <p className="text-muted text-xs px-3 mb-2 truncate">{email}</p>}
+            <button
+              onClick={logout}
+              className="w-full px-3 py-2 text-left text-muted hover:text-white text-sm rounded-lg hover:bg-border transition-colors"
+            >
+              Sign out
+            </button>
+          </div>
         </aside>
 
         {/* Main content — offset by sidebar width */}
         <main className="ml-56 flex-1 min-h-screen">
           <Routes>
-            <Route path="/"             element={<div className="p-6 text-white">Dashboard coming soon</div>} />
+            <Route path="/"             element={<DashboardPage />} />
             <Route path="/accounts"     element={<AccountsPage />} />
-            <Route path="/transactions" element={<div className="p-6 text-white">Transactions coming soon</div>} />
-            <Route path="/budgets"      element={<div className="p-6 text-white">Budgets coming soon</div>} />
+            <Route path="/transactions" element={<TransactionsPage />} />
+            <Route path="/budgets"      element={<BudgetsPage />} />
+            <Route path="/categories"  element={<CategoriesPage />} />
+            <Route path="/import"      element={<ImportPage />} />
           </Routes>
         </main>
 

@@ -4,6 +4,7 @@ import { Card } from '../../components/ui/Card'
 interface AccountCardProps {
   account: Account
   onDelete: (id: number) => void
+  onEdit: (account: Account) => void
 }
 
 // Maps account types to display labels and colours
@@ -26,7 +27,7 @@ function formatCurrency(amount: number): string {
   }).format(amount)
 }
 
-export function AccountCard({ account, onDelete }: AccountCardProps) {
+export function AccountCard({ account, onDelete, onEdit }: AccountCardProps) {
   const typeStyle = ACCOUNT_TYPE_STYLES[account.type]
   const isNegative = account.current_balance < 0
 
@@ -42,12 +43,20 @@ export function AccountCard({ account, onDelete }: AccountCardProps) {
             {account.name}
           </h3>
         </div>
-        <button
-          onClick={() => onDelete(account.id)}
-          className="text-muted hover:text-danger transition-colors text-sm"
-        >
-          Remove
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onEdit(account)}
+            className="text-muted hover:text-white transition-colors text-sm"
+          >
+            Edit
+          </button>
+          <button
+            onClick={() => onDelete(account.id)}
+            className="text-muted hover:text-danger transition-colors text-sm"
+          >
+            Remove
+          </button>
+        </div>
       </div>
 
       {/* Balance */}

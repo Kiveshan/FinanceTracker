@@ -37,3 +37,78 @@ export  interface CreateCategoryBody {
      name : string
      type : CategoryType
 }
+
+export interface UpdateCategoryBody {
+  name?: string
+  type?: CategoryType
+}
+
+export type TransactionType = 'income' | 'expense' | 'transfer'
+export type TransferDirection = 'debit' | 'credit'
+
+export interface Transaction {
+  id: number
+  user_id: number
+  account_id: number
+  account_name?: string
+  to_account_name?: string
+  category_id: number | null
+  category_name?: string | null
+  type: TransactionType
+  transfer_direction: TransferDirection | null
+  transfer_pair_id: number | null
+  amount: number
+  date: string
+  description: string
+  notes: string | null
+  import_id: number | null
+  deleted_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateTransactionBody {
+  account_id: number
+  to_account_id?: number
+  category_id?: number | null
+  type: TransactionType
+  amount: number
+  date: string
+  description: string
+  notes?: string | null
+}
+
+export interface UpdateTransactionBody {
+  amount?: number
+  date?: string
+  description?: string
+  category_id?: number | null
+  notes?: string | null
+}
+
+export interface Budget {
+  id: number
+  user_id: number
+  category_id: number
+  monthly_limit: number
+  month: string
+  created_at: string
+  updated_at: string
+}
+
+export interface BudgetWithSpend extends Budget {
+  category_name: string
+  category_type: CategoryType
+  spent: number
+  percentage: number
+}
+
+export interface CreateBudgetBody {
+  category_id: number
+  monthly_limit: number
+  month: string
+}
+
+export interface UpdateBudgetBody {
+  monthly_limit: number
+}

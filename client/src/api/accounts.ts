@@ -1,4 +1,5 @@
 import type { Account, CreateAccountBody } from '../types'
+import { BASE_URL, getAuthHeaders } from './client'
 
 // LEARNING NOTE: Why a dedicated API layer?
 // You could call fetch() directly inside your components. But then if
@@ -6,11 +7,9 @@ import type { Account, CreateAccountBody } from '../types'
 // in every component. The API layer centralises all backend communication.
 // Components call getAccounts() — they don't know or care about fetch().
 
-const BASE_URL = 'http://localhost:3001/api'
-
 export const accountsApi = {
   getAll: async (): Promise<Account[]> => {
-    const response = await fetch(`${BASE_URL}/accounts`)
+    const response = await fetch(`${BASE_URL}/accounts`, { headers: getAuthHeaders() })
 
 
   
@@ -26,7 +25,7 @@ export const accountsApi = {
   create: async (data: CreateAccountBody): Promise<Account> => {
     const response = await fetch(`${BASE_URL}/accounts`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify(data)
     })
 
@@ -40,9 +39,20 @@ export const accountsApi = {
     return parseAccount ({...raw_data, current_balance : raw_data.opening_balance}) 
   },
 
+  update: async (id: number, data: { name?: string; opening_balance?: number }): Promise<Account> => {
+    const response = await fetch(`${BASE_URL}/accounts/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) throw new Error('Failed to update account')
+    return parseAccount(await response.json())
+  },
+
   delete: async (id: number): Promise<void> => {
     const response = await fetch(`${BASE_URL}/accounts/${id}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: getAuthHeaders(),
     })
 
     if (!response.ok) {

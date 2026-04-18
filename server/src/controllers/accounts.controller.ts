@@ -10,7 +10,7 @@ import { CreateAccountBody, UpdateAccountBody } from '../types'
 
 // GET /api/accounts
 // Returns all active accounts for the user
-export const getAccounts = async (_req: Request, res: Response) => {
+export const getAccounts = async (req: Request, res: Response) => {
   try {
     const result = await query(`
       SELECT
@@ -43,9 +43,9 @@ export const getAccounts = async (_req: Request, res: Response) => {
           0
         ) + a.opening_balance AS current_balance
       FROM accounts a
-      WHERE a.is_active = true
+      WHERE a.is_active = true AND a.user_id = $1
       ORDER BY a.created_at ASC
-    `)
+    `, [req.user!.id])
 
     res.json(result.rows)
   } catch (error) {
@@ -61,8 +61,8 @@ export const getAccountById = async (req: Request, res: Response) => {
     const { id } = req.params
 
     const result = await query(
-      'SELECT * FROM accounts WHERE id = $1 AND is_active = true',
-      [id]
+      'SELECT * FROM accounts WHERE id = $1 AND is_active = true AND user_id = $2',
+      [id, req.user!.id]
     )
 
     // LEARNING NOTE: What is $1?
@@ -109,7 +109,7 @@ export const createAccount = async (req: Request, res: Response) => {
       `INSERT INTO accounts (user_id, name, type, opening_balance)
        VALUES ($1, $2, $3, $4)
        RETURNING *`,
-      [1, name, type, opening_balance ?? 0]
+      [req.user!.id, name, type, opening_balance ?? 0]
       // LEARNING NOTE: RETURNING *
       // PostgreSQL's RETURNING clause gives you back the inserted row
       // immediately after the INSERT — including the generated id and
@@ -135,14 +135,14 @@ export const updateAccount = async (req: Request, res: Response) => {
     const { id } = req.params
     const { name, opening_balance }: UpdateAccountBody = req.body
 
-    const result = await query(
+    const updated = await query(
       `UPDATE accounts
        SET name = COALESCE($1, name),
            opening_balance = COALESCE($2, opening_balance),
            updated_at = NOW()
-       WHERE id = $3 AND is_active = true
-       RETURNING *`,
-      [name, opening_balance, id]
+       WHERE id = $3 AND is_active = true AND user_id = $4
+       RETURNING id`,
+      [name, opening_balance, id, req.user!.id]
       // LEARNING NOTE: COALESCE in updates
       // COALESCE($1, name) means: use the new value if provided,
       // otherwise keep the existing value. This lets the client send
@@ -150,9 +150,35 @@ export const updateAccount = async (req: Request, res: Response) => {
       // called PATCH (vs PUT which replaces the entire resource).
     )
 
-    if (result.rows.length === 0) {
+    if (updated.rows.length === 0) {
       return res.status(404).json({ error: 'Account not found' })
     }
+
+    // Re-fetch with the computed current_balance subquery so the client
+    // always receives a consistent shape (same as getAccounts returns).
+    const result = await query(
+      `SELECT
+         a.*,
+         COALESCE(
+           (
+             SELECT SUM(
+               CASE
+                 WHEN t.type = 'transfer' AND t.transfer_direction = 'debit'  THEN -t.amount
+                 WHEN t.type = 'transfer' AND t.transfer_direction = 'credit' THEN  t.amount
+                 WHEN t.type = 'income'   THEN  t.amount
+                 WHEN t.type = 'expense'  THEN -t.amount
+                 ELSE 0
+               END
+             )
+             FROM transactions t
+             WHERE t.account_id = a.id AND t.deleted_at IS NULL
+           ),
+           0
+         ) + a.opening_balance AS current_balance
+       FROM accounts a
+       WHERE a.id = $1`,
+      [updated.rows[0].id]
+    )
 
     res.json(result.rows[0])
   } catch (error) {
@@ -174,9 +200,9 @@ export const deleteAccount = async (req: Request, res: Response) => {
     const result = await query(
       `UPDATE accounts
        SET is_active = false, updated_at = NOW()
-       WHERE id = $1
+       WHERE id = $1 AND user_id = $2
        RETURNING *`,
-      [id]
+      [id, req.user!.id]
     )
 
     if (result.rows.length === 0) {
