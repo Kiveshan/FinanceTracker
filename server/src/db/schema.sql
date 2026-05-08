@@ -74,6 +74,19 @@ ALTER TABLE transactions
   ADD CONSTRAINT fk_transactions_import
   FOREIGN KEY (import_id) REFERENCES imports(id) ON DELETE SET NULL;
 
+-- Personal category rules — learned from user re-categorisations
+CREATE TABLE IF NOT EXISTS user_category_rules (
+  id          SERIAL PRIMARY KEY,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  pattern     TEXT    NOT NULL,
+  category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+  hit_count   INTEGER NOT NULL DEFAULT 0,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, pattern)
+);
+CREATE INDEX IF NOT EXISTS idx_user_category_rules_user ON user_category_rules(user_id);
+
 -- Migration: budgets become recurring limits (no per-month storage)
 ALTER TABLE budgets DROP CONSTRAINT IF EXISTS budgets_user_id_category_id_month_key;
 DO $$ BEGIN

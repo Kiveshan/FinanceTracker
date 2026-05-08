@@ -235,6 +235,16 @@ export const updateTransaction = async (req: Request, res: Response) => {
          RETURNING *`,
         [newType, newAccountId, newAmount, newDate, newDesc, newCatId, newNotes, id, userId]
       )
+      // Learn: save description→category rule for future imports
+      if (newCatId && tx.import_id) {
+        await client.query(
+          `INSERT INTO user_category_rules (user_id, pattern, category_id)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (user_id, pattern)
+           DO UPDATE SET category_id = $3, hit_count = user_category_rules.hit_count + 1, updated_at = NOW()`,
+          [userId, tx.description, newCatId]
+        )
+      }
       await client.query('COMMIT')
       return res.json(updated.rows[0])
     }
@@ -329,6 +339,18 @@ export const updateTransaction = async (req: Request, res: Response) => {
        RETURNING *`,
       [newType, newAccountId, newAmount, newDate, newDesc, newCatId, newNotes, id, userId]
     )
+
+    // Learn: save description→category rule whenever the user explicitly re-categorises an imported transaction
+    const categoryChanged = category_id !== undefined && category_id !== tx.category_id
+    if (categoryChanged && newCatId && tx.import_id) {
+      await client.query(
+        `INSERT INTO user_category_rules (user_id, pattern, category_id)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (user_id, pattern)
+         DO UPDATE SET category_id = $3, hit_count = user_category_rules.hit_count + 1, updated_at = NOW()`,
+        [userId, tx.description, newCatId]
+      )
+    }
 
     await client.query('COMMIT')
     res.json(updated.rows[0])

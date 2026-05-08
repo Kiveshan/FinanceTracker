@@ -263,6 +263,15 @@ export const previewImport = async (req: Request, res: Response) => {
     const catResult = await query(`SELECT id, name, type FROM categories WHERE user_id = $1`, [userId])
     const categories: Array<{ id: number; name: string; type: string }> = catResult.rows
 
+    // Load personal category rules (learned from previous re-categorisations)
+    const rulesResult = await query(
+      `SELECT pattern, category_id FROM user_category_rules WHERE user_id = $1`,
+      [userId]
+    )
+    const personalRules = new Map<string, number>(
+      rulesResult.rows.map((r: { pattern: string; category_id: number }) => [r.pattern, r.category_id])
+    )
+
     // --- Parse rows into PreviewRow ---
     let parsed: PreviewRow[]
 
@@ -315,8 +324,12 @@ export const previewImport = async (req: Request, res: Response) => {
 
     // --- Auto-create missing categories ---
     // Collect every category name that any parsed row needs.
+    // Personal rules take priority — only fall back to keyword matching when no personal rule exists.
     const neededNames = new Set(
-      parsed.map(r => matchCategoryName(r.description, r.type)).filter((n): n is string => n !== null)
+      parsed
+        .filter(r => r.type !== 'transfer' && !personalRules.has(r.description))
+        .map(r => matchCategoryName(r.description, r.type))
+        .filter((n): n is string => n !== null)
     )
 
     for (const catName of neededNames) {
@@ -343,10 +356,17 @@ export const previewImport = async (req: Request, res: Response) => {
     }
 
     // --- Assign categories to rows ---
-    parsed = parsed.map(row => ({
-      ...row,
-      category_id: matchCategory(row.description, row.type, categories),
-    }))
+    // Priority: 1) personal rules  2) keyword rules  3) fallback (Other Income/Expenses)
+    parsed = parsed.map(row => {
+      if (row.type === 'transfer') return { ...row, category_id: null }
+
+      const personalCatId = personalRules.get(row.description)
+      if (personalCatId !== undefined && categories.some(c => c.id === personalCatId)) {
+        return { ...row, category_id: personalCatId }
+      }
+
+      return { ...row, category_id: matchCategory(row.description, row.type, categories) }
+    })
 
     // --- Duplicate detection ---
     const existing = await query(
