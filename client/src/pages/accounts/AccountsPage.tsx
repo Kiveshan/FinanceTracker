@@ -4,7 +4,10 @@ import { accountsApi } from '../../api/accounts'
 import { AccountCard } from './AccountCard'
 import { AddAccountModal } from './AddAccountModal'
 import { EditAccountModal } from './EditAccountModal'
+import { UpdatePortfolioModal } from './UpdatePortfolioModal'
 import type { CreateAccountBody } from '../../types'
+import { categoriesApi } from '../../api/categories'
+import { transactionsApi } from '../../api/transactions'
 import { formatCurrency } from '../../utils/format'
 import { Spinner } from '../../components/ui/Spinner'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
@@ -15,8 +18,9 @@ export function AccountsPage() {
   const [accounts, setAccounts]     = useState<Account[]>([])
   const [isLoading, setIsLoading]   = useState(true)
   const [error, setError]           = useState<string | null>(null)
-  const [showModal, setShowModal]     = useState(false)
-  const [editingAccount, setEditingAccount] = useState<Account | null>(null)
+  const [showModal, setShowModal]               = useState(false)
+  const [editingAccount, setEditingAccount]     = useState<Account | null>(null)
+  const [portfolioAccount, setPortfolioAccount] = useState<Account | null>(null)
 
   // LEARNING NOTE: useEffect with an empty dependency array []
   // runs exactly once — when the component first mounts (appears on screen).
@@ -69,6 +73,36 @@ export function AccountsPage() {
     } catch {
       toast.error('Failed to delete account')
     }
+  }
+
+  const handleUpdatePortfolio = async (account: Account, newValue: number) => {
+    const delta = newValue - account.current_balance
+    if (delta === 0) return
+
+    const isGrowth    = delta > 0
+    const txType      = isGrowth ? 'income' : 'expense'
+    const categoryName = isGrowth ? 'Investment Returns' : 'Investment Loss'
+
+    // Find or create the category
+    const categories = await categoriesApi.getAll()
+    let category = categories.find(c => c.name === categoryName && c.type === txType)
+    if (!category) {
+      category = await categoriesApi.create({ name: categoryName, type: txType })
+    }
+
+    const today = new Date().toISOString().slice(0, 10)
+    await transactionsApi.create({
+      account_id:  account.id,
+      category_id: category.id,
+      type:        txType,
+      amount:      Math.abs(delta),
+      date:        today,
+      description: isGrowth ? 'Portfolio Return' : 'Portfolio Loss',
+    })
+
+    // Refresh account balances
+    await fetchAccounts()
+    toast.success(`Portfolio updated to ${formatCurrency(newValue)}`)
   }
 
   // Group accounts by type for display
@@ -139,6 +173,7 @@ export function AccountsPage() {
                 account={account}
                 onDelete={handleDelete}
                 onEdit={setEditingAccount}
+                onUpdateValue={setPortfolioAccount}
               />
             ))}
           </div>
@@ -166,6 +201,14 @@ export function AccountsPage() {
           account={editingAccount}
           onClose={() => setEditingAccount(null)}
           onSubmit={handleUpdate}
+        />
+      )}
+
+      {portfolioAccount && (
+        <UpdatePortfolioModal
+          account={portfolioAccount}
+          onClose={() => setPortfolioAccount(null)}
+          onSubmit={newValue => handleUpdatePortfolio(portfolioAccount, newValue)}
         />
       )}
     </div>

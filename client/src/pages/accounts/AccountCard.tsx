@@ -8,6 +8,7 @@ interface AccountCardProps {
   account: Account
   onDelete: (id: number) => void
   onEdit: (account: Account) => void
+  onUpdateValue?: (account: Account) => void
 }
 
 // Maps account types to display labels and colours
@@ -19,11 +20,12 @@ const ACCOUNT_TYPE_STYLES: Record<string, { label: string; colour: string }> = {
 }
 
 
-export function AccountCard({ account, onDelete, onEdit }: AccountCardProps) {
+export function AccountCard({ account, onDelete, onEdit, onUpdateValue }: AccountCardProps) {
   const [showConfirm, setShowConfirm] = useState(false)
-  const typeStyle = ACCOUNT_TYPE_STYLES[account.type]
-  const isCredit  = account.type === 'credit'
-  const isNegative = account.current_balance < 0
+  const typeStyle    = ACCOUNT_TYPE_STYLES[account.type]
+  const isCredit     = account.type === 'credit'
+  const isInvestment = account.type === 'investment'
+  const isNegative   = account.current_balance < 0
 
   const balanceLabel  = isCredit ? 'Amount Owed' : 'Current Balance'
   const displayAmount = isCredit ? Math.abs(account.current_balance) : account.current_balance
@@ -69,11 +71,21 @@ export function AccountCard({ account, onDelete, onEdit }: AccountCardProps) {
         )}
       </div>
 
-      {/* Opening balance */}
+      {/* Footer */}
       <div className="border-t border-border pt-3">
-        <p className="text-muted text-xs">
-          Opening balance: {formatCurrency(account.opening_balance)}
-        </p>
+        {isInvestment ? (
+          <button
+            onClick={() => onUpdateValue?.(account)}
+            className="w-full text-sm text-purple-400 hover:text-purple-300 font-medium
+                       transition-colors text-left"
+          >
+            + Update Portfolio Value
+          </button>
+        ) : (
+          <p className="text-muted text-xs">
+            Opening balance: {formatCurrency(account.opening_balance)}
+          </p>
+        )}
       </div>
     </Card>
 

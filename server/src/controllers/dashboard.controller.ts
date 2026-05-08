@@ -112,7 +112,7 @@ export const getDashboard = async (req: Request, res: Response) => {
         [USER_ID, targetMonth]
       ),
 
-      // Account balances (with derived balance)
+      // Account balances at end of selected month
       query(
         `SELECT
            a.id, a.name, a.type, a.opening_balance,
@@ -126,13 +126,15 @@ export const getDashboard = async (req: Request, res: Response) => {
                  ELSE 0
                END)
               FROM transactions t
-              WHERE t.account_id = a.id AND t.deleted_at IS NULL),
+              WHERE t.account_id = a.id
+                AND t.deleted_at IS NULL
+                AND t.date < (DATE_TRUNC('month', ($2 || '-01')::date) + INTERVAL '1 month')),
              0
            ) + a.opening_balance AS current_balance
          FROM accounts a
          WHERE a.user_id = $1 AND a.is_active = true
          ORDER BY a.type, a.name`,
-        [USER_ID]
+        [USER_ID, targetMonth]
       ),
 
       // Previous month cash flow (for net worth delta)

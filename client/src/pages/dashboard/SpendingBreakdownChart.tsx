@@ -22,18 +22,17 @@ export function SpendingBreakdownChart({ data }: Props) {
   return (
     <Card>
       <p className="text-muted text-xs font-medium uppercase tracking-wider mb-4">Spending Breakdown</p>
-      <ResponsiveContainer width="100%" height={220}>
+      <ResponsiveContainer width="100%" height={280}>
         <PieChart>
           <Pie
             data={data}
             dataKey="value"
             nameKey="name"
             cx="50%"
-            cy="50%"
-            outerRadius={80}
-            label={(props: { name?: string; percent?: number }) => `${props.name ?? ''} ${((props.percent ?? 0) * 100).toFixed(0)}%`}
+            cy="45%"
+            outerRadius={90}
+            label={false}
             labelLine={false}
-            fontSize={11}
           >
             {data.map((_, i) => (
               <Cell key={i} fill={COLOURS[i % COLOURS.length]} />
