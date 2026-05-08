@@ -94,24 +94,21 @@ export interface Budget {
   user_id: number
   category_id: number
   monthly_limit: number
-  month: string
   created_at: string
   updated_at: string
 }
 
-export interface BudgetWithSpend extends Budget {
+export interface BudgetWithSpend {
+  id: number | null
+  category_id: number
   category_name: string
   category_type: CategoryType
+  monthly_limit: number | null
   spent: number
-  percentage: number
+  percentage: number | null
 }
 
 export interface CreateBudgetBody {
   category_id: number
-  monthly_limit: number
-  month: string
-}
-
-export interface UpdateBudgetBody {
   monthly_limit: number
 }

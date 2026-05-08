@@ -1,9 +1,9 @@
 import { Request, Response } from 'express'
 import { query } from '../db'
-import { CreateBudgetBody, UpdateBudgetBody } from '../types'
+import { CreateBudgetBody } from '../types'
 
 // GET /api/budgets?month=YYYY-MM
-// Returns all expense categories with their budget limit and actual spend for the month
+// Returns all expense categories with their recurring limit and actual spend for the given month
 export const getBudgets = async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id
@@ -17,7 +17,6 @@ export const getBudgets = async (req: Request, res: Response) => {
          c.type        AS category_type,
          b.id,
          b.monthly_limit,
-         b.month,
          COALESCE(
            (
              SELECT SUM(t.amount)
@@ -31,11 +30,10 @@ export const getBudgets = async (req: Request, res: Response) => {
            0
          ) AS spent
        FROM categories c
-       LEFT JOIN budgets b
-         ON b.category_id = c.id AND b.month = $2 AND b.user_id = $1
+       LEFT JOIN budgets b ON b.category_id = c.id AND b.user_id = $1
        WHERE c.user_id = $1
          AND c.type = 'expense'
-       ORDER BY c.name ASC`,
+       ORDER BY b.monthly_limit DESC NULLS LAST, c.name ASC`,
       [userId, targetMonth]
     )
 
@@ -54,13 +52,13 @@ export const getBudgets = async (req: Request, res: Response) => {
 }
 
 // POST /api/budgets
-// Upserts a budget for a category+month — updates if one already exists
+// Upserts a recurring budget limit for a category — one per category, applies every month
 export const upsertBudget = async (req: Request, res: Response) => {
   try {
-    const { category_id, monthly_limit, month }: CreateBudgetBody = req.body
+    const { category_id, monthly_limit }: CreateBudgetBody = req.body
 
-    if (!category_id || !monthly_limit || !month) {
-      return res.status(400).json({ error: 'category_id, monthly_limit, and month are required' })
+    if (!category_id || !monthly_limit) {
+      return res.status(400).json({ error: 'category_id and monthly_limit are required' })
     }
 
     if (monthly_limit <= 0) {
@@ -68,47 +66,18 @@ export const upsertBudget = async (req: Request, res: Response) => {
     }
 
     const result = await query(
-      `INSERT INTO budgets (user_id, category_id, monthly_limit, month)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (user_id, category_id, month)
+      `INSERT INTO budgets (user_id, category_id, monthly_limit)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, category_id)
        DO UPDATE SET monthly_limit = $3, updated_at = NOW()
        RETURNING *`,
-      [req.user!.id, category_id, monthly_limit, month]
+      [req.user!.id, category_id, monthly_limit]
     )
 
     res.status(201).json(result.rows[0])
   } catch (error) {
     console.error('Error upserting budget:', error)
     res.status(500).json({ error: 'Failed to save budget' })
-  }
-}
-
-// PATCH /api/budgets/:id
-export const updateBudget = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params
-    const { monthly_limit }: UpdateBudgetBody = req.body
-
-    if (!monthly_limit || monthly_limit <= 0) {
-      return res.status(400).json({ error: 'monthly_limit must be greater than 0' })
-    }
-
-    const result = await query(
-      `UPDATE budgets
-       SET monthly_limit = $1, updated_at = NOW()
-       WHERE id = $2 AND user_id = $3
-       RETURNING *`,
-      [monthly_limit, id, req.user!.id]
-    )
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Budget not found' })
-    }
-
-    res.json(result.rows[0])
-  } catch (error) {
-    console.error('Error updating budget:', error)
-    res.status(500).json({ error: 'Failed to update budget' })
   }
 }
 

@@ -77,7 +77,6 @@ export interface Budget {
   user_id: number
   category_id: number
   monthly_limit: number
-  month: string
   created_at: Date
   updated_at: Date
 }
@@ -125,10 +124,5 @@ export interface UpdateTransactionBody {
 
 export interface CreateBudgetBody {
   category_id: number
-  monthly_limit: number
-  month: string
-}
-
-export interface UpdateBudgetBody {
   monthly_limit: number
 }

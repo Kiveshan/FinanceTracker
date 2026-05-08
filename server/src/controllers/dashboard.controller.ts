@@ -79,7 +79,7 @@ export const getDashboard = async (req: Request, res: Response) => {
              0
            ) AS spent
          FROM categories c
-         LEFT JOIN budgets b ON b.category_id = c.id AND b.month = $2 AND b.user_id = $1
+         LEFT JOIN budgets b ON b.category_id = c.id AND b.user_id = $1
          WHERE c.user_id = $1 AND c.type = 'expense'
          ORDER BY c.name`,
         [USER_ID, targetMonth]

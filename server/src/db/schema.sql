@@ -52,10 +52,9 @@ CREATE TABLE IF NOT EXISTS budgets (
   user_id       INTEGER        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   category_id   INTEGER        NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
   monthly_limit NUMERIC(12, 2) NOT NULL CHECK (monthly_limit > 0),
-  month         CHAR(7)        NOT NULL,
   created_at    TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
   updated_at    TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
-  UNIQUE (user_id, category_id, month)
+  UNIQUE (user_id, category_id)
 );
 
 CREATE TABLE IF NOT EXISTS imports (
@@ -75,6 +74,18 @@ ALTER TABLE transactions
   ADD CONSTRAINT fk_transactions_import
   FOREIGN KEY (import_id) REFERENCES imports(id) ON DELETE SET NULL;
 
+-- Migration: budgets become recurring limits (no per-month storage)
+ALTER TABLE budgets DROP CONSTRAINT IF EXISTS budgets_user_id_category_id_month_key;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='budgets' AND column_name='month') THEN
+    DELETE FROM budgets a USING budgets b
+      WHERE a.user_id = b.user_id AND a.category_id = b.category_id AND a.id < b.id;
+    ALTER TABLE budgets DROP COLUMN month;
+  END IF;
+END $$;
+ALTER TABLE budgets DROP CONSTRAINT IF EXISTS budgets_user_category_unique;
+ALTER TABLE budgets ADD CONSTRAINT budgets_user_category_unique UNIQUE (user_id, category_id);
+
 -- Migration: add rolled_back to imports status (run once on existing DBs)
 ALTER TABLE imports DROP CONSTRAINT IF EXISTS imports_status_check;
 ALTER TABLE imports ADD CONSTRAINT imports_status_check
@@ -91,5 +102,5 @@ CREATE INDEX IF NOT EXISTS idx_transactions_active      ON transactions(user_id,
 CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_unique_tx
   ON transactions(user_id, account_id, date, amount, description)
   WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_budgets_user_month ON budgets(user_id, month);
+CREATE INDEX IF NOT EXISTS idx_budgets_user_id ON budgets(user_id);
 CREATE INDEX IF NOT EXISTS idx_accounts_user_id   ON accounts(user_id);

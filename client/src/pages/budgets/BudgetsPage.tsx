@@ -11,23 +11,16 @@ import { PiggyBank } from 'lucide-react'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { toast } from 'sonner'
 
-function statusIcon(pct: number | null): { icon: string; colour: string } {
-  if (pct === null) return { icon: '—', colour: 'text-muted' }
-  if (pct >= 100)   return { icon: '🔴', colour: 'text-danger' }
-  if (pct >= 80)    return { icon: '⚠️', colour: 'text-warning' }
-  return               { icon: '✅', colour: 'text-success' }
-}
-
 export function BudgetsPage() {
   useDocumentTitle('Budgets')
   const currentMonth = new Date().toISOString().slice(0, 7)
 
-  const [month, setMonth]           = useState<string>(currentMonth)
-  const [budgets, setBudgets]       = useState<BudgetWithSpend[]>([])
-  const [isLoading, setIsLoading]   = useState(true)
-  const [error, setError]           = useState<string | null>(null)
-  const [editing, setEditing]       = useState<BudgetWithSpend | null>(null)
-  const [deleting, setDeleting]     = useState<BudgetWithSpend | null>(null)
+  const [month, setMonth]       = useState<string>(currentMonth)
+  const [budgets, setBudgets]   = useState<BudgetWithSpend[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError]       = useState<string | null>(null)
+  const [editing, setEditing]   = useState<BudgetWithSpend | null>(null)
+  const [deleting, setDeleting] = useState<BudgetWithSpend | null>(null)
 
   useEffect(() => { fetchBudgets() }, [month]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -43,43 +36,41 @@ export function BudgetsPage() {
     }
   }
 
-  const handleUpsert = async (categoryId: number, limit: number, targetMonth: string) => {
-    try {
-      await budgetsApi.upsert({ category_id: categoryId, monthly_limit: limit, month: targetMonth })
-      await fetchBudgets()
-      toast.success('Budget saved')
-    } catch {
-      toast.error('Failed to save budget')
-    }
+  const handleUpsert = async (categoryId: number, limit: number) => {
+    await budgetsApi.upsert({ category_id: categoryId, monthly_limit: limit })
+    await fetchBudgets()
+    toast.success('Budget saved')
   }
 
   const handleDelete = async (id: number) => {
-    try {
-      await budgetsApi.delete(id)
-      setBudgets(prev => prev.map(b => b.id === id ? { ...b, id: undefined as unknown as number, monthly_limit: null as unknown as number } : b))
-      await fetchBudgets()
-      toast.success('Budget removed')
-    } catch {
-      toast.error('Failed to remove budget')
-    }
+    await budgetsApi.delete(id)
+    await fetchBudgets()
+    toast.success('Budget removed')
   }
 
-  // Generate month options: current month + 11 previous months
   const monthOptions = Array.from({ length: 12 }, (_, i) => {
     const d = new Date()
     d.setMonth(d.getMonth() - i)
     return d.toISOString().slice(0, 7)
   })
 
+  const budgeted   = budgets.filter(b => b.monthly_limit !== null)
+  const unbudgeted = budgets.filter(b => b.monthly_limit === null && b.spent > 0)
+
+  const totalLimit = budgeted.reduce((s, b) => s + (b.monthly_limit ?? 0), 0)
+  const totalSpent = budgeted.reduce((s, b) => s + b.spent, 0)
+  const overallPct = totalLimit > 0 ? (totalSpent / totalLimit) * 100 : 0
+  const surplus    = totalLimit - totalSpent
+
   if (isLoading) return <div className="flex items-center justify-center h-64"><Spinner size={32} /></div>
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-3xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-white text-2xl font-bold">Budgets</h1>
-          <p className="text-muted text-sm mt-1">Monthly spending limits per category</p>
+          <p className="text-muted text-sm mt-1">Monthly spending limits — set once, apply every month</p>
         </div>
         <select
           value={month}
@@ -98,89 +89,114 @@ export function BudgetsPage() {
         <EmptyState
           icon={PiggyBank}
           title="No expense categories yet"
-          description="Add categories first, then set monthly spending limits."
+          description="Add expense categories first, then set monthly spending limits."
         />
       ) : (
-        <div className="flex flex-col gap-8">
+        <div className="flex flex-col gap-6">
 
-          {/* ── Active budgets ── */}
-          {(() => {
-            const active = budgets.filter(b => b.monthly_limit !== null)
-            return active.length > 0 ? (
-              <section>
-                <h2 className="text-muted text-xs font-medium uppercase tracking-wider mb-3">Active Budgets</h2>
-                <div className="flex flex-col gap-3">
-                  {active.map(budget => {
-                    const pct = (budget.spent / budget.monthly_limit!) * 100
-                    const { icon, colour } = statusIcon(pct)
-                    const barColour = pct >= 100 ? 'bg-danger' : pct >= 80 ? 'bg-warning' : 'bg-success'
+          {/* ── Summary bar ── */}
+          {budgeted.length > 0 && (
+            <Card className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <p className="text-muted text-sm">
+                  {formatMonth(month)} — <span className="text-white">{budgeted.length}</span> budget{budgeted.length !== 1 ? 's' : ''}
+                </p>
+                <p className={`text-sm font-semibold ${surplus >= 0 ? 'text-success' : 'text-danger'}`}>
+                  {surplus >= 0 ? `R${formatCurrency(surplus)} remaining` : `R${formatCurrency(Math.abs(surplus))} over`}
+                </p>
+              </div>
+              <div className="w-full bg-border rounded-full h-2.5">
+                <div
+                  className={`h-2.5 rounded-full transition-all ${overallPct >= 100 ? 'bg-danger' : overallPct >= 80 ? 'bg-warning' : 'bg-success'}`}
+                  style={{ width: `${Math.min(overallPct, 100)}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-muted">
+                <span>{formatCurrency(totalSpent)} spent</span>
+                <span>{formatCurrency(totalLimit)} total budget</span>
+              </div>
+            </Card>
+          )}
 
-                    return (
-                      <Card key={budget.category_id} className="flex flex-col gap-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span>{icon}</span>
-                            <span className="text-white font-medium">{budget.category_name}</span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className={`text-sm font-medium ${colour}`}>
-                              {formatCurrency(budget.spent)} / {formatCurrency(budget.monthly_limit!)}
-                            </span>
-                            <button
-                              onClick={() => setEditing(budget)}
-                              className="text-muted hover:text-white text-xs transition-colors"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => setDeleting(budget)}
-                              className="text-muted hover:text-danger text-xs transition-colors"
-                            >
-                              Remove
-                            </button>
-                          </div>
+          {/* ── Budgeted categories ── */}
+          {budgeted.length > 0 && (
+            <section>
+              <h2 className="text-muted text-xs font-medium uppercase tracking-wider mb-3">Active Budgets</h2>
+              <div className="flex flex-col gap-2">
+                {budgeted.map(b => {
+                  const pct       = (b.spent / b.monthly_limit!) * 100
+                  const barColour = pct >= 100 ? 'bg-danger' : pct >= 80 ? 'bg-warning' : 'bg-success'
+                  const remaining = b.monthly_limit! - b.spent
+
+                  return (
+                    <Card key={b.category_id} className="flex flex-col gap-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-white text-sm font-medium">{b.category_name}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-muted text-xs">
+                            {formatCurrency(b.spent)} / {formatCurrency(b.monthly_limit!)}
+                          </span>
+                          <button onClick={() => setEditing(b)} className="text-muted hover:text-white text-xs transition-colors">Edit</button>
+                          <button onClick={() => setDeleting(b)} className="text-muted hover:text-danger text-xs transition-colors">Remove</button>
                         </div>
-
-                        <div className="w-full bg-border rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full transition-all ${barColour}`}
-                            style={{ width: `${Math.min(pct, 100)}%` }}
-                          />
-                        </div>
-                        <p className="text-muted text-xs">{pct.toFixed(0)}% of limit used</p>
-                      </Card>
-                    )
-                  })}
-                </div>
-              </section>
-            ) : null
-          })()}
-
-          {/* ── Categories without a budget ── */}
-          {(() => {
-            const unset = budgets.filter(b => b.monthly_limit === null)
-            return unset.length > 0 ? (
-              <section>
-                <h2 className="text-muted text-xs font-medium uppercase tracking-wider mb-3">Add a Budget</h2>
-                <div className="flex flex-col gap-2">
-                  {unset.map(budget => (
-                    <div
-                      key={budget.category_id}
-                      className="flex items-center justify-between px-4 py-3 bg-surface border border-border rounded-xl hover:border-primary transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted text-sm">{budget.category_name}</span>
-                        <span className="text-muted text-xs">
-                          · {formatCurrency(budget.spent)} spent this month
-                        </span>
                       </div>
-                      <button
-                        onClick={() => setEditing(budget)}
-                        className="px-3 py-1 bg-primary/20 hover:bg-primary text-primary hover:text-white text-xs font-medium rounded-lg transition-colors"
-                      >
-                        + Set Budget
-                      </button>
+                      <div className="w-full bg-border rounded-full h-1.5">
+                        <div className={`h-1.5 rounded-full transition-all ${barColour}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                      </div>
+                      <p className="text-muted text-xs">
+                        {pct >= 100
+                          ? <span className="text-danger">{formatCurrency(Math.abs(remaining))} over budget</span>
+                          : <span>{formatCurrency(remaining)} remaining · {pct.toFixed(0)}% used</span>
+                        }
+                      </p>
+                    </Card>
+                  )
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* ── Unbudgeted categories with spend ── */}
+          {unbudgeted.length > 0 && (
+            <section>
+              <h2 className="text-muted text-xs font-medium uppercase tracking-wider mb-3">No Limit Set</h2>
+              <div className="flex flex-col gap-2">
+                {unbudgeted.map(b => (
+                  <div
+                    key={b.category_id}
+                    className="flex items-center justify-between px-4 py-3 bg-surface border border-border rounded-xl"
+                  >
+                    <div>
+                      <span className="text-white text-sm">{b.category_name}</span>
+                      <span className="text-muted text-xs ml-2">· {formatCurrency(b.spent)} spent</span>
                     </div>
+                    <button
+                      onClick={() => setEditing(b)}
+                      className="px-3 py-1 bg-primary/20 hover:bg-primary text-primary hover:text-white text-xs font-medium rounded-lg transition-colors"
+                    >
+                      + Set Limit
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ── Zero-spend unbudgeted ── */}
+          {(() => {
+            const inactive = budgets.filter(b => b.monthly_limit === null && b.spent === 0)
+            return inactive.length > 0 ? (
+              <section>
+                <h2 className="text-muted text-xs font-medium uppercase tracking-wider mb-3">Other Categories</h2>
+                <div className="flex flex-wrap gap-2">
+                  {inactive.map(b => (
+                    <button
+                      key={b.category_id}
+                      onClick={() => setEditing(b)}
+                      className="px-3 py-1.5 border border-border rounded-lg text-muted text-xs hover:border-primary hover:text-white transition-colors"
+                    >
+                      {b.category_name} +
+                    </button>
                   ))}
                 </div>
               </section>
@@ -193,7 +209,6 @@ export function BudgetsPage() {
       {editing && (
         <SetBudgetModal
           budget={editing}
-          month={month}
           onClose={() => setEditing(null)}
           onSubmit={handleUpsert}
         />
@@ -202,9 +217,9 @@ export function BudgetsPage() {
       {deleting && (
         <ConfirmDialog
           title="Remove Budget"
-          message={`Remove the budget for "${deleting.category_name}"? The category and its transactions won't be affected.`}
+          message={`Remove the spending limit for "${deleting.category_name}"? The category and its transactions won't be affected.`}
           confirmLabel="Remove"
-          onConfirm={() => { const id = deleting.id; setDeleting(null); handleDelete(id) }}
+          onConfirm={() => { const id = deleting.id!; setDeleting(null); handleDelete(id) }}
           onCancel={() => setDeleting(null)}
         />
       )}
