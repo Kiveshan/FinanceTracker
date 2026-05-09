@@ -141,6 +141,26 @@ npm run dev
 
 Starts both backend (port 3001) and frontend (port 5173) concurrently. Open [http://localhost:5173](http://localhost:5173).
 
+### 5. (Optional) Load demo data
+
+```bash
+cd server && npm run seed
+```
+
+Creates a demo account pre-loaded with 4 months of realistic South African financial data across four accounts. Safe to re-run — wipes and recreates the demo user's data each time.
+
+| | |
+|---|---|
+| **Email** | `demo@financetracker.co.za` |
+| **Password** | `demo` |
+
+The demo includes:
+- **Standard Bank Cheque** — monthly salary, debit orders, groceries, fuel, and dining
+- **FNB Savings** — monthly transfer from cheque + interest income
+- **Absa Credit Card** — shopping and restaurant spend with monthly payments
+- **Easy Equities** — portfolio returns (including one loss month for realism)
+- 10 recurring budget limits across all major spending categories
+
 ---
 
 ## First-time Setup
