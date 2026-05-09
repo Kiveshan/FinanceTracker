@@ -112,8 +112,9 @@ CREATE INDEX IF NOT EXISTS idx_transactions_date        ON transactions(date);
 CREATE INDEX IF NOT EXISTS idx_transactions_import_id   ON transactions(import_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_active      ON transactions(user_id, date)
   WHERE deleted_at IS NULL;
-CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_unique_tx
-  ON transactions(user_id, account_id, date, amount, description)
-  WHERE deleted_at IS NULL;
+-- Duplicate detection is now count-based in application code (imports.controller.ts).
+-- A unique constraint prevented two legitimate identical transactions on the same day
+-- (e.g. two coffees at the same café). Index removed; deduplication handled in preview.
+-- DROP INDEX IF EXISTS idx_transactions_unique_tx; -- migration: run once on existing DBs
 CREATE INDEX IF NOT EXISTS idx_budgets_user_id ON budgets(user_id);
 CREATE INDEX IF NOT EXISTS idx_accounts_user_id   ON accounts(user_id);

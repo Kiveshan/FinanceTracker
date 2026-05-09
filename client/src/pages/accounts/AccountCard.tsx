@@ -9,6 +9,7 @@ interface AccountCardProps {
   onDelete: (id: number) => void
   onEdit: (account: Account) => void
   onUpdateValue?: (account: Account) => void
+  onVerify?: (account: Account) => void
 }
 
 // Maps account types to display labels and colours
@@ -20,14 +21,14 @@ const ACCOUNT_TYPE_STYLES: Record<string, { label: string; colour: string }> = {
 }
 
 
-export function AccountCard({ account, onDelete, onEdit, onUpdateValue }: AccountCardProps) {
+export function AccountCard({ account, onDelete, onEdit, onUpdateValue, onVerify }: AccountCardProps) {
   const [showConfirm, setShowConfirm] = useState(false)
   const typeStyle    = ACCOUNT_TYPE_STYLES[account.type]
   const isCredit     = account.type === 'credit'
   const isInvestment = account.type === 'investment'
   const isNegative   = account.current_balance < 0
 
-  const balanceLabel  = isCredit ? 'Amount Owed' : 'Current Balance'
+  const balanceLabel  = isCredit ? 'Amount Owed' : isInvestment ? 'Portfolio Value' : 'Current Balance'
   const displayAmount = isCredit ? Math.abs(account.current_balance) : account.current_balance
   const balanceColour = isCredit ? 'text-red-400' : isNegative ? 'text-danger' : 'text-white'
 
@@ -82,9 +83,17 @@ export function AccountCard({ account, onDelete, onEdit, onUpdateValue }: Accoun
             + Update Portfolio Value
           </button>
         ) : (
-          <p className="text-muted text-xs">
-            Opening balance: {formatCurrency(account.opening_balance)}
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-muted text-xs">
+              Opening balance: {formatCurrency(account.opening_balance)}
+            </p>
+            <button
+              onClick={() => onVerify?.(account)}
+              className="text-xs text-muted hover:text-primary transition-colors"
+            >
+              Verify
+            </button>
+          </div>
         )}
       </div>
     </Card>

@@ -368,21 +368,33 @@ export const previewImport = async (req: Request, res: Response) => {
       return { ...row, category_id: matchCategory(row.description, row.type, categories) }
     })
 
-    // --- Duplicate detection ---
-    const existing = await query(
-      `SELECT date, amount, description FROM transactions WHERE user_id = $1 AND deleted_at IS NULL`,
+    // --- Count-based duplicate detection ---
+    // A transaction is only a duplicate if the DB already contains at least as many
+    // occurrences of (date, amount, description) as appear in this batch up to that point.
+    // This correctly allows two identical transactions on the same day (e.g. two coffees
+    // at the same café) while still blocking re-imports of the same statement.
+    const existingResult = await query(
+      `SELECT date::text, amount::text, description, COUNT(*)::int AS cnt
+       FROM transactions
+       WHERE user_id = $1 AND deleted_at IS NULL
+       GROUP BY date, amount, description`,
       [userId]
     )
-    const existingSet = new Set(
-      existing.rows.map(r =>
-        `${r.date.toISOString().slice(0, 10)}|${(+r.amount).toFixed(2)}|${normaliseDesc(r.description)}`
-      )
-    )
+    const existingCounts = new Map<string, number>()
+    for (const r of existingResult.rows) {
+      const key = `${(r.date as string).slice(0, 10)}|${(+r.amount).toFixed(2)}|${r.description as string}`
+      existingCounts.set(key, r.cnt as number)
+    }
 
-    const withDuplicates = parsed.map(row => ({
-      ...row,
-      is_duplicate: existingSet.has(`${row.date}|${(+row.amount).toFixed(2)}|${normaliseDesc(row.description)}`),
-    }))
+    // Track how many times each key appears within this incoming batch
+    const batchCounts = new Map<string, number>()
+    const withDuplicates = parsed.map(row => {
+      const key = `${row.date}|${(+row.amount).toFixed(2)}|${normaliseDesc(row.description)}`
+      const batchOccurrence = (batchCounts.get(key) ?? 0) + 1
+      batchCounts.set(key, batchOccurrence)
+      const existingCount = existingCounts.get(key) ?? 0
+      return { ...row, is_duplicate: batchOccurrence <= existingCount }
+    })
 
     res.json({
       rows:       withDuplicates,
@@ -447,9 +459,13 @@ export const confirmImport = async (req: Request, res: Response) => {
     )
     const importId = importResult.rows[0].id
 
+    const duplicateCount = rows.filter(r => r.is_duplicate).length
     let insertedCount = 0
 
     for (const row of rows) {
+      // Skip rows already identified as duplicates during preview
+      if (row.is_duplicate) continue
+
       const txType = row.type ?? 'expense'
       const desc   = normaliseDesc(row.description)
 
@@ -459,9 +475,6 @@ export const confirmImport = async (req: Request, res: Response) => {
           `INSERT INTO transactions
              (user_id, account_id, category_id, type, amount, date, description, import_id, transfer_direction)
            VALUES ($1, $2, $3, 'transfer', $4, $5, $6, $7, $8)
-           ON CONFLICT (user_id, account_id, date, amount, description)
-           WHERE deleted_at IS NULL
-           DO NOTHING
            RETURNING id`,
           [userId, row.account_id, row.category_id ?? null, row.amount, row.date, desc, importId, direction]
         )
@@ -470,9 +483,6 @@ export const confirmImport = async (req: Request, res: Response) => {
         const result = await client.query(
           `INSERT INTO transactions (user_id, account_id, type, category_id, amount, date, description, import_id)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-           ON CONFLICT (user_id, account_id, date, amount, description)
-           WHERE deleted_at IS NULL
-           DO NOTHING
            RETURNING id`,
           [userId, row.account_id, txType, row.category_id ?? null, row.amount, row.date, desc, importId]
         )
@@ -482,7 +492,7 @@ export const confirmImport = async (req: Request, res: Response) => {
 
     await client.query(
       `UPDATE imports SET status = 'complete', transaction_count = $1, duplicate_count = $2, updated_at = NOW() WHERE id = $3`,
-      [insertedCount, rows.length - insertedCount, importId]
+      [insertedCount, duplicateCount, importId]
     )
 
     // Opening balance recalculation

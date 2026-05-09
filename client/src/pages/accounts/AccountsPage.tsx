@@ -5,6 +5,7 @@ import { AccountCard } from './AccountCard'
 import { AddAccountModal } from './AddAccountModal'
 import { EditAccountModal } from './EditAccountModal'
 import { UpdatePortfolioModal } from './UpdatePortfolioModal'
+import { VerifyBalanceModal } from './VerifyBalanceModal'
 import type { CreateAccountBody } from '../../types'
 import { categoriesApi } from '../../api/categories'
 import { transactionsApi } from '../../api/transactions'
@@ -21,6 +22,7 @@ export function AccountsPage() {
   const [showModal, setShowModal]               = useState(false)
   const [editingAccount, setEditingAccount]     = useState<Account | null>(null)
   const [portfolioAccount, setPortfolioAccount] = useState<Account | null>(null)
+  const [verifyAccount, setVerifyAccount]       = useState<Account | null>(null)
 
   // LEARNING NOTE: useEffect with an empty dependency array []
   // runs exactly once — when the component first mounts (appears on screen).
@@ -105,6 +107,12 @@ export function AccountsPage() {
     toast.success(`Portfolio updated to ${formatCurrency(newValue)}`)
   }
 
+  const handleVerifyAdjust = async (accountId: number, newOpeningBalance: number) => {
+    const updated = await accountsApi.update(accountId, { opening_balance: newOpeningBalance })
+    setAccounts(prev => prev.map(a => a.id === accountId ? updated : a))
+    setVerifyAccount(prev => prev?.id === accountId ? updated : prev)
+  }
+
   // Group accounts by type for display
   // LEARNING NOTE: reduce() here builds an object where each key is
   // an account type and each value is an array of accounts of that type.
@@ -174,6 +182,7 @@ export function AccountsPage() {
                 onDelete={handleDelete}
                 onEdit={setEditingAccount}
                 onUpdateValue={setPortfolioAccount}
+                onVerify={setVerifyAccount}
               />
             ))}
           </div>
@@ -209,6 +218,14 @@ export function AccountsPage() {
           account={portfolioAccount}
           onClose={() => setPortfolioAccount(null)}
           onSubmit={newValue => handleUpdatePortfolio(portfolioAccount, newValue)}
+        />
+      )}
+
+      {verifyAccount && (
+        <VerifyBalanceModal
+          account={verifyAccount}
+          onClose={() => setVerifyAccount(null)}
+          onAdjust={handleVerifyAdjust}
         />
       )}
     </div>
